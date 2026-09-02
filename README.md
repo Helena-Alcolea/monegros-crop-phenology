@@ -1,6 +1,6 @@
 # Fenología de cultivos en Monegros II
 
-<En desarrollo>
+*En desarrollo*
 
 Dashboard geoespacial para explorar la evolución estacional de los cultivos de
 secano, regadío y pivote central en una zona piloto de Monegros II. Combina
