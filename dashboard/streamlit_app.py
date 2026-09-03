@@ -44,6 +44,7 @@ TEXT = {
         "eyebrow": "SENTINEL-2 · CAMPAÑA PAC 2025",
         "title": "El pulso agrícola de Monegros II",
         "subtitle": "Explora cómo cambian los cultivos de secano, regadío y pivote a lo largo del año.",
+        "location": "Provincia de Huesca · Aragón · España",
         "language": "Idioma",
         "system": "Sistema agrícola",
         "all": "Todos",
@@ -51,7 +52,7 @@ TEXT = {
         "irrigated_non_pivot": "Regadío sin pivote",
         "pivot": "Pivote central",
         "crops": "Cultivos y secuencias",
-        "choose_crops": "Selecciona una o varias opciones",
+        "choose_crops": "Seleccionar cultivo",
         "month": "Imagen mensual",
         "map": "Mosaico mensual y cultivos declarados",
         "chart": "Evolución del NDVI · mediana móvil de 30 días",
@@ -59,11 +60,12 @@ TEXT = {
         "phase_yes": "Fases · Sí",
         "phase_no": "Fases · No",
         "phase_reference": "Calendario orientativo: {crop}",
+        "cycle_shown": "Ciclo mostrado",
         "phase_scheme": "Fases orientativas",
         "valid_units": "Nº unidades válidas",
         "no_crop": "Selecciona al menos un cultivo para mostrar su curva.",
         "peak": "Máximo observado",
-        "amplitude": "Amplitud",
+        "seasonal_variation": "Variación estacional",
         "samples_units": "unidades",
         "samples_pivots": "pivotes",
         "primary_cycle": "Primer ciclo",
@@ -79,6 +81,7 @@ TEXT = {
         "eyebrow": "SENTINEL-2 · 2025 CAP CAMPAIGN",
         "title": "The agricultural pulse of Monegros II",
         "subtitle": "Explore how dryland, irrigated and centre-pivot crops change through the year.",
+        "location": "Huesca province · Aragon · Spain",
         "language": "Language",
         "system": "Agricultural system",
         "all": "All",
@@ -86,7 +89,7 @@ TEXT = {
         "irrigated_non_pivot": "Irrigated, non-pivot",
         "pivot": "Centre pivot",
         "crops": "Crops and sequences",
-        "choose_crops": "Select one or more options",
+        "choose_crops": "Select crops",
         "month": "Monthly image",
         "map": "Monthly mosaic and declared crops",
         "chart": "NDVI evolution · 30-day rolling median",
@@ -94,11 +97,12 @@ TEXT = {
         "phase_yes": "Phases · On",
         "phase_no": "Phases · Off",
         "phase_reference": "Indicative calendar: {crop}",
+        "cycle_shown": "Cycle shown",
         "phase_scheme": "Indicative phases",
         "valid_units": "Valid units",
         "no_crop": "Select at least one crop to display its curve.",
         "peak": "Observed peak",
-        "amplitude": "Amplitude",
+        "seasonal_variation": "Seasonal variation",
         "samples_units": "units",
         "samples_pivots": "pivots",
         "primary_cycle": "First cycle",
@@ -165,7 +169,22 @@ def phase_chart_layers(
                 "y0": 0,
                 "y1": 1,
                 "fillcolor": phase["color"],
-                "opacity": 0.075,
+                "opacity": 0.09,
+                "line": {"width": 0},
+                "layer": "below",
+            }
+        )
+        shapes.append(
+            {
+                "type": "rect",
+                "xref": "x",
+                "yref": "paper",
+                "x0": start,
+                "x1": end,
+                "y0": 0.88,
+                "y1": 0.995,
+                "fillcolor": phase["color"],
+                "opacity": 0.34,
                 "line": {"width": 0},
                 "layer": "below",
             }
@@ -175,12 +194,12 @@ def phase_chart_layers(
                 "xref": "x",
                 "yref": "paper",
                 "x": start + (end - start) / 2,
-                "y": 0.985,
-                "text": label,
+                "y": 0.937,
+                "text": f"<b>{label}</b>",
                 "textangle": -90 if (end - start).days < 48 else 0,
                 "showarrow": False,
-                "font": {"size": 9, "color": "#344957"},
-                "yanchor": "top",
+                "font": {"size": 10, "color": "#183447"},
+                "yanchor": "middle",
             }
         )
     return shapes, annotations
@@ -362,20 +381,38 @@ def build_chart(
     }
     reference_sequence = str(chosen.iloc[0]["crop_sequence"])
     phase_shapes, phase_annotations = phase_chart_layers(reference_sequence, language)
+    cycle_label = html.escape(
+        str(chosen.iloc[0]["label_es"] if language == "es" else chosen.iloc[0]["label_en"])
+    )
+    phase_header = {
+        "xref": "paper",
+        "yref": "paper",
+        "x": 0,
+        "y": 1.135,
+        "text": f'<b>{text["cycle_shown"]} · {cycle_label}</b>',
+        "showarrow": False,
+        "font": {"size": 12, "color": "#FFFFFF"},
+        "bgcolor": "#29495B",
+        "bordercolor": "#29495B",
+        "borderwidth": 1,
+        "borderpad": 6,
+        "xanchor": "left",
+        "yanchor": "middle",
+    }
     base_shapes = [month_shape]
     base_annotations = [month_annotation]
     visible_shapes = [*base_shapes, *phase_shapes]
-    visible_annotations = [*base_annotations, *phase_annotations]
+    visible_annotations = [*base_annotations, phase_header, *phase_annotations]
     tick_dates = pd.date_range("2024-09-01", "2025-10-01", freq="MS")
     tick_labels = [
         f"{MONTHS[language][value.month - 1][:3].capitalize()}<br>{value.year}"
         for value in tick_dates
     ]
     figure.update_layout(
-        height=540,
-        margin={"l": 18, "r": 18, "t": 70, "b": 16},
+        height=570,
+        margin={"l": 22, "r": 20, "t": 86, "b": 20},
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#F7F4ED",
+        plot_bgcolor="#FCFAF5",
         hovermode="x unified",
         shapes=visible_shapes,
         annotations=visible_annotations,
@@ -407,7 +444,7 @@ def build_chart(
                 ],
             }
         ],
-        legend={"orientation": "h", "y": -0.18, "x": 0, "font": {"size": 11}},
+        legend={"orientation": "h", "y": -0.18, "x": 0, "font": {"size": 12, "color": "#263B49"}},
         xaxis={
             "title": None,
             "showgrid": False,
@@ -415,7 +452,7 @@ def build_chart(
             "tickmode": "array",
             "tickvals": tick_dates,
             "ticktext": tick_labels,
-            "tickfont": {"color": "#263B49", "size": 11},
+            "tickfont": {"color": "#1E3646", "size": 13},
             "showline": True,
             "linecolor": "#526574",
             "linewidth": 1.4,
@@ -425,11 +462,11 @@ def build_chart(
             "automargin": True,
         },
         yaxis={
-            "title": {"text": "NDVI", "font": {"color": "#20364B", "size": 14}},
+            "title": {"text": "NDVI", "font": {"color": "#17324B", "size": 16}},
             "range": [0, 1],
             "gridcolor": "rgba(32,54,75,0.15)",
             "zeroline": False,
-            "tickfont": {"color": "#263B49", "size": 12},
+            "tickfont": {"color": "#1E3646", "size": 13},
             "showline": True,
             "linecolor": "#526574",
             "linewidth": 1.4,
@@ -491,7 +528,8 @@ def render_phenology(groups: pd.DataFrame, selected_groups: list[str], language:
                 f'<div class="phenology-title">{label}</div>'
                 f'<div class="phenology-stat"><span>{text["peak"]}</span><strong>{peak}</strong></div>'
                 f"{second_html}"
-                f'<div class="phenology-meta"><span>Δ {float(row["seasonal_amplitude"]):.2f}</span>'
+                f'<div class="phenology-meta"><span>{text["seasonal_variation"]}: '
+                f'{float(row["seasonal_amplitude"]):.2f}</span>'
                 f'<strong>{text["valid_units"]}: {int(row["total_samples"])}</strong></div>'
                 f'<div class="phase-heading">{text["phase_scheme"]}</div>'
                 f"{phase_schedule}</div>",
@@ -504,26 +542,30 @@ def main() -> None:
     st.markdown(
         """
         <style>
-        .stApp { background: #F4F0E7; color: #20364B; }
+        .stApp { background: #FAF8F2; color: #17324B; }
         [data-testid="stAppDeployButton"] { display:none; }
-        .block-container { max-width: 1500px; padding-top: 1.4rem; padding-bottom: 2rem; }
+        .block-container { max-width: 1500px; padding-top: 2.45rem; padding-bottom: 2rem; }
+        div[data-testid="stSegmentedControl"] { margin-top:.2rem; padding:.16rem 0 .28rem; overflow:visible; }
         .hero { padding: .6rem 0 1.1rem; }
         .eyebrow { color:#B06435; font-size:.76rem; font-weight:750; letter-spacing:.16em; }
         .hero h1 { color:#17324B; font-size:clamp(2rem,4vw,3.7rem); line-height:1.02; margin:.28rem 0 .45rem; }
-        .hero p { color:#526574; font-size:1.06rem; margin:0; }
+        .hero p { color:#3C5361; font-size:1.06rem; margin:0; }
+        .location-chip { display:inline-flex; align-items:center; gap:6px; color:#29495B; background:#FFFDF8; border:1px solid #D8D2C5; border-radius:999px; padding:6px 11px; margin-top:12px; font-size:.88rem; font-weight:690; }
         .section-label { color:#17324B; font-size:1.18rem; font-weight:780; letter-spacing:.02em; margin:.55rem 0 .7rem; }
         .phenology-card { background:#FFFCF6; border-radius:14px; border-top:5px solid; padding:18px 19px; margin:.55rem 0; box-shadow:0 5px 20px rgba(32,54,75,.07); }
         .phenology-title { color:#20364B; font-weight:780; font-size:1.08rem; margin-bottom:12px; }
-        .phenology-stat { display:flex; justify-content:space-between; gap:12px; font-size:.93rem; color:#445865; padding:2px 0; }
+        .phenology-stat { display:flex; justify-content:space-between; gap:12px; font-size:.93rem; color:#354D5A; padding:2px 0; }
         .phenology-stat strong { color:#1E3443; font-weight:720; }
-        .phenology-meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; color:#465A66; font-size:.88rem; margin-top:11px; padding-top:10px; border-top:1px solid #E4E0D6; }
+        .phenology-meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; color:#344D5A; font-size:.88rem; margin-top:11px; padding-top:10px; border-top:1px solid #E4E0D6; }
         .phenology-meta strong { color:#263E4C; font-weight:720; }
         .phase-heading { color:#263E4C; font-size:.85rem; font-weight:740; margin:14px 0 7px; }
         .phase-grid { display:grid; grid-template-columns:1fr; gap:5px; }
-        .phase-item { display:grid; grid-template-columns:10px minmax(0,1fr) auto; align-items:center; gap:7px; color:#405561; font-size:.79rem; line-height:1.2; }
+        .phase-item { display:grid; grid-template-columns:10px minmax(0,1fr) auto; align-items:center; gap:7px; color:#304A58; font-size:.79rem; line-height:1.2; }
         .phase-swatch { width:8px; height:8px; border-radius:50%; }
         .phase-name { font-weight:650; }
-        .phase-months { color:#526672; font-size:.76rem; white-space:nowrap; }
+        .phase-months { color:#3D5360; font-size:.76rem; white-space:nowrap; }
+        [data-testid="stCaptionContainer"] p { color:#354D5A; font-size:.91rem; }
+        [data-testid="stWidgetLabel"] p { color:#263F4E; font-weight:650; }
         div[data-testid="stMetric"] { background:#FFFCF6; border-radius:12px; padding:10px; }
         </style>
         """,
@@ -543,7 +585,8 @@ def main() -> None:
     text = TEXT[language]
     st.markdown(
         f"<div class='hero'><div class='eyebrow'>{text['eyebrow']}</div>"
-        f"<h1>{text['title']}</h1><p>{text['subtitle']}</p></div>",
+        f"<h1>{text['title']}</h1><p>{text['subtitle']}</p>"
+        f"<div class='location-chip'>📍 {text['location']}</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -559,20 +602,11 @@ def main() -> None:
     labels = available.set_index("group_id")["label_es" if language == "es" else "label_en"].to_dict()
     ordered_ids = [identifier for identifier in PORTFOLIO_GROUP_ORDER if identifier in labels]
     ordered_ids.extend(identifier for identifier in labels if identifier not in ordered_ids)
-    default_ids = [
-        identifier
-        for identifier in [
-            "5-s-dryland-cebada",
-            "4-r-irrigated-non-pivot-maiz",
-            "4-r-pivot-maiz",
-        ]
-        if identifier in labels
-    ]
     with control_crops:
         selected_groups = st.multiselect(
             text["crops"],
             options=ordered_ids,
-            default=default_ids,
+            default=[],
             format_func=lambda value: labels[value],
             key=f"crop_selection_{system}",
             placeholder=text["choose_crops"],
