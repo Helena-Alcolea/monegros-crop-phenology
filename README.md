@@ -3,9 +3,7 @@
 **Análisis de la dinámica estacional de cultivos de secano, regadío y pivote
 central en Monegros II mediante Sentinel-2 y declaraciones PAC/SIGPAC.**
 
-> **Status:** análisis completo y dashboard bilingüe preparado para despliegue.
-> El repositorio presenta los resultados; la aplicación permite explorarlos de
-> forma interactiva.
+**[Dashboard en vivo](https://monegros-crop-phenology.streamlit.app/)**
 
 ## ¿Qué estudia este proyecto?
 
