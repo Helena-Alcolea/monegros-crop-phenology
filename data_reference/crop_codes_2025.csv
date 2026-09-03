@@ -1,0 +1,16 @@
+product_code,crop_name,crop_group
+1,Trigo blando,Cereal de invierno
+3,Trigo duro,Cereal de invierno
+4,Maíz,Cultivo de verano
+5,Cebada,Cereal de invierno
+8,Avena,Cereal de invierno
+13,Triticale,Cereal de invierno
+20,Barbecho tradicional,Barbecho
+23,Barbecho medioambiental,Barbecho
+40,Guisante,Leguminosa
+52,Veza,Leguminosa
+53,Yeros,Leguminosa
+60,Alfalfa,Forrajero perenne
+62,Pastos permanentes de 5 o más años,Pasto permanente
+68,Festuca,Forrajero
+101,Olivar,Cultivo leñoso

@@ -1,0 +1,95 @@
+{
+  "bbox_wgs84": [
+    -0.078535,
+    41.455348,
+    -0.020767,
+    41.49232
+  ],
+  "selection": "monthly Sentinel-2 L2A mosaic using least cloud cover order",
+  "months": [
+    {
+      "month": "2024-09",
+      "date": "2024-09-11",
+      "clear_fraction": 0.9780775477827303,
+      "image": "monthly_rgb/2024-09.png"
+    },
+    {
+      "month": "2024-10",
+      "date": "2024-10-11",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2024-10.png"
+    },
+    {
+      "month": "2024-11",
+      "date": "2024-11-05",
+      "clear_fraction": 0.9999055677268264,
+      "image": "monthly_rgb/2024-11.png"
+    },
+    {
+      "month": "2024-12",
+      "date": "2024-12-15",
+      "clear_fraction": 0.9973983908740651,
+      "image": "monthly_rgb/2024-12.png"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-14",
+      "clear_fraction": 0.9983002190828738,
+      "image": "monthly_rgb/2025-01.png"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-03",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-02.png"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-30",
+      "clear_fraction": 0.9998677948175568,
+      "image": "monthly_rgb/2025-03.png"
+    },
+    {
+      "month": "2025-04",
+      "date": "2025-04-06",
+      "clear_fraction": 0.9999811135453652,
+      "image": "monthly_rgb/2025-04.png"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-16",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-05.png"
+    },
+    {
+      "month": "2025-06",
+      "date": "2025-06-13",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-06.png"
+    },
+    {
+      "month": "2025-07",
+      "date": "2025-07-03",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-07.png"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-02",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-08.png"
+    },
+    {
+      "month": "2025-09",
+      "date": "2025-09-03",
+      "clear_fraction": 0.9999622270907306,
+      "image": "monthly_rgb/2025-09.png"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-01",
+      "clear_fraction": 1.0,
+      "image": "monthly_rgb/2025-10.png"
+    }
+  ]
+}
