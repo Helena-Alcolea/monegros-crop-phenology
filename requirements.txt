@@ -1,7 +1,0 @@
-geopandas>=1.0,<2
-matplotlib>=3.9,<4
-pillow>=11,<13
-plotly>=6,<7
-pyogrio>=0.10,<1
-rasterio>=1.4,<2
-streamlit>=1.55,<2
