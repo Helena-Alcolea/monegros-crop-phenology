@@ -28,6 +28,36 @@ SYSTEM_COLORS = {
     "irrigated_non_pivot": "#2A9D6F",
     "pivot": "#3575B5",
 }
+# Paleta agraria: el tono dice el sistema (tierras en secano, verdes y azules en
+# regadío) y el trazo lo repite (continuo, discontinuo, punteado). Al separar los
+# dos canales, los colores solo compiten dentro de su propio bloque, y eso permite
+# abrirlos sin salirse de la gama. Ninguno pasa de croma 0,155 en OKLCh.
+GROUP_COLORS = {
+    # Secano · línea continua · tierras
+    "20-s-dryland-barbecho-tradicional": "#512E18",
+    "5-s-dryland-cebada": "#C39800",
+    "13-s-dryland-triticale": "#866222",
+    "1-s-dryland-trigo-blando": "#868600",
+    "40-s-dryland-guisante": "#7F7D51",
+    "53-s-dryland-yeros": "#9E9B66",
+    "62-s-dryland-pastos-permanentes-de-5-o-mas-anos": "#6D4935",
+    # Regadío sin pivote · línea discontinua · verdes y azules
+    "5-r-irrigated-non-pivot-cebada-maiz": "#57A8FF",
+    "40-r-irrigated-non-pivot-guisante-maiz": "#1D3F61",
+    "60-r-irrigated-non-pivot-alfalfa": "#4E777B",
+    "4-r-irrigated-non-pivot-maiz": "#6AB985",
+    "20-r-irrigated-non-pivot-barbecho-tradicional": "#005EAB",
+    "5-r-irrigated-non-pivot-cebada": "#519FB1",
+    "68-r-irrigated-non-pivot-festuca": "#004333",
+    "13-r-irrigated-non-pivot-triticale": "#0085B4",
+    "52-r-irrigated-non-pivot-veza-maiz": "#2B5C58",
+    # Pivote central · línea punteada
+    "4-r-pivot-maiz": "#2183D8",
+}
+PHASE_BAND = {"bottom": 1.018, "top": 1.072}
+PHASE_LABEL_ROWS = (1.115, 1.178)
+PLOT_DAYS = 426
+PLOT_WIDTH_HINT = 1000
 PORTFOLIO_GROUP_ORDER = [
     "20-s-dryland-barbecho-tradicional",
     "5-s-dryland-cebada",
@@ -41,10 +71,15 @@ PORTFOLIO_GROUP_ORDER = [
 TEXT = {
     "es": {
         "page_title": "Monegros II · Fenología agrícola",
-        "eyebrow": "SENTINEL-2 · CAMPAÑA PAC 2025",
+        "eyebrow": "FENOLOGÍA DE CULTIVOS · TELEDETECCIÓN",
         "title": "El pulso agrícola de Monegros II",
         "subtitle": "Explora cómo cambian los cultivos de secano, regadío y pivote a lo largo del año.",
-        "location": "Provincia de Huesca · Aragón · España",
+        "meta": (
+            ("Zona de estudio", "Monegros II · Huesca, Aragón"),
+            ("Campaña", "PAC 2025 · sep 2024 – oct 2025"),
+            ("Fuente", "Sentinel-2 L2A · SIGPAC"),
+        ),
+        "dash_key": "Trazo: continuo secano · discontinuo regadío · punteado pivote",
         "language": "Idioma",
         "system": "Sistema agrícola",
         "all": "Todos",
@@ -54,6 +89,7 @@ TEXT = {
         "crops": "Cultivos y secuencias",
         "choose_crops": "Seleccionar cultivo",
         "month": "Imagen mensual",
+        "layer_opacity": "Opacidad de la capa",
         "map": "Mosaico mensual y cultivos declarados",
         "chart": "Evolución del NDVI · mediana móvil de 30 días",
         "chart_key": "Puntos: medianas observadas · líneas: mediana móvil centrada de 30 días · bandas: rango intercuartílico.",
@@ -63,7 +99,7 @@ TEXT = {
         "cycle_shown": "Ciclo mostrado",
         "phase_scheme": "Fases orientativas",
         "valid_units": "Nº unidades válidas",
-        "no_crop": "Selecciona al menos un cultivo para mostrar su curva.",
+        "no_crop": "Selecciona al menos un cultivo para dibujar su curva y su capa sobre el mosaico.",
         "peak": "Máximo observado",
         "seasonal_variation": "Variación estacional",
         "samples_units": "unidades",
@@ -78,10 +114,15 @@ TEXT = {
     },
     "en": {
         "page_title": "Monegros II · Crop phenology",
-        "eyebrow": "SENTINEL-2 · 2025 CAP CAMPAIGN",
+        "eyebrow": "CROP PHENOLOGY · REMOTE SENSING",
         "title": "The agricultural pulse of Monegros II",
         "subtitle": "Explore how dryland, irrigated and centre-pivot crops change through the year.",
-        "location": "Huesca province · Aragon · Spain",
+        "meta": (
+            ("Study area", "Monegros II · Huesca, Aragon"),
+            ("Campaign", "2025 CAP · Sep 2024 – Oct 2025"),
+            ("Source", "Sentinel-2 L2A · SIGPAC"),
+        ),
+        "dash_key": "Line: solid dryland · dashed irrigated · dotted centre pivot",
         "language": "Language",
         "system": "Agricultural system",
         "all": "All",
@@ -91,6 +132,7 @@ TEXT = {
         "crops": "Crops and sequences",
         "choose_crops": "Select crops",
         "month": "Monthly image",
+        "layer_opacity": "Layer opacity",
         "map": "Monthly mosaic and declared crops",
         "chart": "NDVI evolution · 30-day rolling median",
         "chart_key": "Dots: observed medians · lines: centred 30-day rolling median · bands: interquartile range.",
@@ -100,7 +142,7 @@ TEXT = {
         "cycle_shown": "Cycle shown",
         "phase_scheme": "Indicative phases",
         "valid_units": "Valid units",
-        "no_crop": "Select at least one crop to display its curve.",
+        "no_crop": "Select at least one crop to draw its curve and its layer over the mosaic.",
         "peak": "Observed peak",
         "seasonal_variation": "Seasonal variation",
         "samples_units": "units",
@@ -123,9 +165,21 @@ MONTHS = {
 }
 
 
+def dash_for(regime: str, system_class: str) -> str:
+    """El trazo repite el sistema agrícola, para que el color no cargue solo."""
+    if regime == "S":
+        return "solid"
+    return "dot" if system_class == "pivot" else "dash"
+
+
 @st.cache_data
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict, dict]:
     groups = pd.read_csv(DATA_DIR / "groups.csv")
+    groups["color"] = groups["group_id"].map(GROUP_COLORS).fillna(groups["color"])
+    groups["dash"] = [
+        dash_for(regime, system_class)
+        for regime, system_class in zip(groups["regime"], groups["system_class"])
+    ]
     curves = pd.read_csv(DATA_DIR / "curves.csv", parse_dates=["date"])
     units = json.loads((DATA_DIR / "units.geojson").read_text(encoding="utf-8"))
     monthly = json.loads((DATA_DIR / "monthly_rgb.json").read_text(encoding="utf-8"))
@@ -153,8 +207,17 @@ def phase_chart_layers(
     sequence: str,
     language: str,
 ) -> tuple[list[dict], list[dict]]:
+    """Franja de fases situada por encima del área de trazado.
+
+    Las etiquetas ya no se escriben sobre las curvas: viven en una banda propia y
+    se reparten en dos filas cuando el nombre no cabe dentro de su tramo.
+    """
     shapes: list[dict] = []
     annotations: list[dict] = []
+    origin = pd.Timestamp("2024-09-01")
+    pixels_per_day = PLOT_WIDTH_HINT / PLOT_DAYS
+    font_size = 13
+    row_ends = [-1e6, -1e6]
     for phase in calendar_for(sequence):
         start = pd.Timestamp(phase["start"])
         end = pd.Timestamp(phase["end"]) + pd.Timedelta(days=1)
@@ -169,7 +232,7 @@ def phase_chart_layers(
                 "y0": 0,
                 "y1": 1,
                 "fillcolor": phase["color"],
-                "opacity": 0.09,
+                "opacity": 0.075,
                 "line": {"width": 0},
                 "layer": "below",
             }
@@ -181,25 +244,42 @@ def phase_chart_layers(
                 "yref": "paper",
                 "x0": start,
                 "x1": end,
-                "y0": 0.88,
-                "y1": 0.995,
+                "y0": PHASE_BAND["bottom"],
+                "y1": PHASE_BAND["top"],
                 "fillcolor": phase["color"],
-                "opacity": 0.34,
+                "opacity": 0.62,
                 "line": {"width": 0},
-                "layer": "below",
             }
         )
+        centre_day = (start - origin).days + (end - start).days / 2
+        text_days = len(label) * 0.52 * font_size / pixels_per_day
+        row = 1 if centre_day - text_days / 2 < row_ends[0] + 3 else 0
+        if row == 1 and centre_day - text_days / 2 < row_ends[1] + 3:
+            row = 0
+        row_ends[row] = centre_day + text_days / 2
         annotations.append(
             {
                 "xref": "x",
                 "yref": "paper",
                 "x": start + (end - start) / 2,
-                "y": 0.937,
+                "y": PHASE_LABEL_ROWS[row],
                 "text": f"<b>{label}</b>",
-                "textangle": -90 if (end - start).days < 48 else 0,
                 "showarrow": False,
-                "font": {"size": 10, "color": "#183447"},
+                "font": {"size": font_size, "color": "#1B3446"},
                 "yanchor": "middle",
+                "xanchor": "center",
+            }
+        )
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "x",
+                "yref": "paper",
+                "x0": start + (end - start) / 2,
+                "x1": start + (end - start) / 2,
+                "y0": PHASE_BAND["top"],
+                "y1": PHASE_LABEL_ROWS[row] - 0.022,
+                "line": {"color": phase["color"], "width": 1.2},
             }
         )
     return shapes, annotations
@@ -210,6 +290,8 @@ def hex_to_rgb(color: str, alpha: int = 118) -> list[int]:
 
 
 def feature_subset(units: dict, system: str, selected_groups: list[str]) -> list[dict]:
+    if not selected_groups:
+        return []
     features = []
     for feature in units["features"]:
         properties = feature["properties"]
@@ -265,6 +347,7 @@ def build_aoi_image(
     system: str,
     selected_groups: list[str],
     color_by_group: dict[str, str],
+    opacity: float,
 ) -> Image.Image:
     bounds = tuple(monthly["bbox_wgs84"])
     image_record = next(item for item in monthly["months"] if item["month"] == selected_month)
@@ -275,8 +358,10 @@ def build_aoi_image(
         color = color_by_group.get(
             properties["group_id"], SYSTEM_COLORS[properties["system_class"]]
         )
-        fill = tuple(hex_to_rgb(color, 112))
-        outline = tuple(hex_to_rgb(color, 245))
+        # El contorno se apaga más despacio que el relleno: en opacidades bajas
+        # queda el parcelario dibujado sobre la imagen, sin teñir el terreno.
+        fill = tuple(hex_to_rgb(color, round(255 * opacity)))
+        outline = tuple(hex_to_rgb(color, round(255 * opacity ** 0.25)))
         geometry = feature["geometry"]
         polygons = (
             [geometry["coordinates"]]
@@ -346,7 +431,11 @@ def build_chart(
                 mode="lines",
                 name=label,
                 legendgroup=group_identifier,
-                line={"color": metadata["color"], "width": 3},
+                line={
+                    "color": metadata["color"],
+                    "width": 3,
+                    "dash": metadata["dash"],
+                },
                 customdata=data[["observed_samples"]],
                 hovertemplate=(
                     f"<b>{label}</b><br>{text['date']}: %{{x|%d %b %Y}}"
@@ -373,10 +462,12 @@ def build_chart(
         "xref": "x",
         "yref": "paper",
         "x": month_start + (month_end - month_start) / 2,
-        "y": 1.01,
+        "y": 0.015,
         "text": text["selected_month"],
         "showarrow": False,
-        "font": {"size": 10, "color": "#344957"},
+        "font": {"size": 11, "color": "#344957"},
+        "bgcolor": "rgba(252,250,245,0.82)",
+        "borderpad": 3,
         "yanchor": "bottom",
     }
     reference_sequence = str(chosen.iloc[0]["crop_sequence"])
@@ -388,7 +479,7 @@ def build_chart(
         "xref": "paper",
         "yref": "paper",
         "x": 0,
-        "y": 1.135,
+        "y": 1.255,
         "text": f'<b>{text["cycle_shown"]} · {cycle_label}</b>',
         "showarrow": False,
         "font": {"size": 12, "color": "#FFFFFF"},
@@ -409,8 +500,8 @@ def build_chart(
         for value in tick_dates
     ]
     figure.update_layout(
-        height=570,
-        margin={"l": 22, "r": 20, "t": 86, "b": 20},
+        height=660,
+        margin={"l": 22, "r": 20, "t": 190, "b": 20},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#FCFAF5",
         hovermode="x unified",
@@ -424,7 +515,7 @@ def build_chart(
                 "active": 0,
                 "x": 1,
                 "xanchor": "right",
-                "y": 1.16,
+                "y": 1.285,
                 "yanchor": "top",
                 "pad": {"r": 0, "t": 0},
                 "bgcolor": "#FFFCF6",
@@ -545,13 +636,21 @@ def main() -> None:
         .stApp { background: #FAF8F2; color: #17324B; }
         [data-testid="stAppDeployButton"] { display:none; }
         .block-container { max-width: 1500px; padding-top: 2.45rem; padding-bottom: 2rem; }
-        div[data-testid="stSegmentedControl"] { margin-top:.2rem; padding:.16rem 0 .28rem; overflow:visible; }
+        div[data-testid="stElementContainer"]:has(div[data-testid="stButtonGroup"]) { overflow:visible; }
+        div[data-testid="stButtonGroup"] { overflow:visible; padding:4px 0 8px; }
+        div[data-testid="stButtonGroup"] > div { overflow:visible; justify-content:flex-end; }
+        div[data-testid="stButtonGroup"] button { min-height:38px; padding:5px 20px; font-weight:720; letter-spacing:.08em; line-height:1.5; }
         .hero { padding: .6rem 0 1.1rem; }
         .eyebrow { color:#B06435; font-size:.76rem; font-weight:750; letter-spacing:.16em; }
         .hero h1 { color:#17324B; font-size:clamp(2rem,4vw,3.7rem); line-height:1.02; margin:.28rem 0 .45rem; }
         .hero p { color:#3C5361; font-size:1.06rem; margin:0; }
-        .location-chip { display:inline-flex; align-items:center; gap:6px; color:#29495B; background:#FFFDF8; border:1px solid #D8D2C5; border-radius:999px; padding:6px 11px; margin-top:12px; font-size:.88rem; font-weight:690; }
-        .section-label { color:#17324B; font-size:1.18rem; font-weight:780; letter-spacing:.02em; margin:.55rem 0 .7rem; }
+        .hero-meta { display:flex; flex-wrap:wrap; gap:14px 38px; margin:20px 0 0; padding-top:15px; border-top:1px solid #DED8CA; }
+        .hero-meta div { display:flex; flex-direction:column; gap:3px; }
+        .hero-meta dt { color:#6E7E88; font-size:.71rem; font-weight:730; letter-spacing:.11em; text-transform:uppercase; }
+        .hero-meta dd { margin:0; color:#223D4E; font-size:.95rem; font-weight:660; }
+        .section-label { color:#17324B; font-size:1.45rem; font-weight:760; letter-spacing:-.005em; display:flex; align-items:center; gap:14px; margin:1.7rem 0 .85rem; }
+        .section-label::before { content:""; width:5px; height:1.1em; border-radius:3px; background:#B06435; flex:none; }
+        .section-label::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,#D8D2C5,rgba(216,210,197,0)); }
         .phenology-card { background:#FFFCF6; border-radius:14px; border-top:5px solid; padding:18px 19px; margin:.55rem 0; box-shadow:0 5px 20px rgba(32,54,75,.07); }
         .phenology-title { color:#20364B; font-weight:780; font-size:1.08rem; margin-bottom:12px; }
         .phenology-stat { display:flex; justify-content:space-between; gap:12px; font-size:.93rem; color:#354D5A; padding:2px 0; }
@@ -573,24 +672,31 @@ def main() -> None:
     )
     groups, curves, units, monthly = load_data()
 
-    language = st.segmented_control(
-        "Language / Idioma",
-        options=["es", "en"],
-        default="es",
-        format_func=lambda value: "ES" if value == "es" else "EN",
-        label_visibility="collapsed",
-        key="language",
-    )
+    _, language_slot = st.columns([5, 1])
+    with language_slot:
+        language = st.segmented_control(
+            "Language / Idioma",
+            options=["es", "en"],
+            default="es",
+            format_func=lambda value: "ES" if value == "es" else "EN",
+            label_visibility="collapsed",
+            key="language",
+        )
     language = language or "es"
     text = TEXT[language]
+    meta_items = "".join(
+        f"<div><dt>{label}</dt><dd>{value}</dd></div>" for label, value in text["meta"]
+    )
     st.markdown(
         f"<div class='hero'><div class='eyebrow'>{text['eyebrow']}</div>"
         f"<h1>{text['title']}</h1><p>{text['subtitle']}</p>"
-        f"<div class='location-chip'>📍 {text['location']}</div></div>",
+        f"<dl class='hero-meta'>{meta_items}</dl></div>",
         unsafe_allow_html=True,
     )
 
-    control_system, control_crops, control_month = st.columns([1.0, 2.25, 1.35])
+    control_system, control_crops, control_month, control_opacity = st.columns(
+        [1.0, 2.1, 1.3, 1.0]
+    )
     system_ids = ["all", "dryland", "irrigated_non_pivot", "pivot"]
     with control_system:
         system = st.selectbox(
@@ -619,6 +725,15 @@ def main() -> None:
             value="2025-07",
             format_func=lambda value: month_label(value, language),
         )
+    with control_opacity:
+        layer_opacity = st.slider(
+            text["layer_opacity"],
+            min_value=0,
+            max_value=100,
+            value=45,
+            step=5,
+            format="%d%%",
+        )
 
     colors = groups.set_index("group_id")["color"].to_dict()
     st.markdown(f"<div class='section-label'>{text['map']}</div>", unsafe_allow_html=True)
@@ -629,6 +744,7 @@ def main() -> None:
         system,
         selected_groups,
         colors,
+        layer_opacity / 100,
     )
     st.image(aoi_image, width="stretch")
 
@@ -646,7 +762,7 @@ def main() -> None:
             else reference["crop_sequence_en"]
         )
         st.caption(
-            f'{text["chart_key"]} · '
+            f'{text["dash_key"]}. {text["chart_key"]} · '
             f'{text["phase_reference"].format(crop=reference_crop)}.'
         )
     else:
