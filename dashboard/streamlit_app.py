@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 import html
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -54,10 +55,50 @@ GROUP_COLORS = {
     # Pivote central · línea punteada
     "4-r-pivot-maiz": "#2183D8",
 }
-PHASE_BAND = {"bottom": 1.018, "top": 1.072}
-PHASE_LABEL_ROWS = (1.115, 1.178)
 PLOT_DAYS = 426
-PLOT_WIDTH_HINT = 1000
+# El gráfico se dibuja con coordenadas absolutas, así que no puede adaptarse solo:
+# cada perfil fija el espacio del que dispone. En móvil no caben los nombres de las
+# fases, y en su lugar la franja lleva números que la ficha de abajo repite.
+CHART_LAYOUT = {
+    "desktop": {
+        "height": 660,
+        "margin_top": 190,
+        "plot_width": 1000,
+        "phase_band": (1.018, 1.072),
+        "phase_rows": (1.115, 1.178),
+        "phase_font": 13,
+        "numbered_phases": False,
+        "tick_step": 1,
+        "tick_font": 13,
+        "axis_title_font": 16,
+        "legend_font": 12,
+        "legend_y": -0.18,
+        "month_font": 11,
+        "cycle_header": True,
+        "header_y": 1.255,
+        "buttons_y": 1.285,
+        "button_font": 11,
+    },
+    "mobile": {
+        "height": 520,
+        "margin_top": 104,
+        "plot_width": 330,
+        "phase_band": (1.025, 1.080),
+        "phase_rows": (1.128, 1.128),
+        "phase_font": 12,
+        "numbered_phases": True,
+        "tick_step": 2,
+        "tick_font": 10,
+        "axis_title_font": 12,
+        "legend_font": 10,
+        "legend_y": -0.34,
+        "month_font": 9,
+        "cycle_header": False,
+        "header_y": 1.20,
+        "buttons_y": 1.21,
+        "button_font": 10,
+    },
+}
 PORTFOLIO_GROUP_ORDER = [
     "20-s-dryland-barbecho-tradicional",
     "5-s-dryland-cebada",
@@ -165,6 +206,21 @@ MONTHS = {
 }
 
 
+MOBILE_AGENT = re.compile(
+    r"Android|iPhone|iPod|iPad|Windows Phone|IEMobile|Opera Mini|Mobile Safari",
+    re.IGNORECASE,
+)
+
+
+def chart_profile() -> dict:
+    """Perfil de dibujo según el dispositivo, leído de la cabecera del navegador."""
+    try:
+        agent = st.context.headers.get("User-Agent", "")
+    except Exception:  # noqa: BLE001 - sin contexto de petición, asumimos escritorio
+        agent = ""
+    return CHART_LAYOUT["mobile" if MOBILE_AGENT.search(agent) else "desktop"]
+
+
 def dash_for(regime: str, system_class: str) -> str:
     """El trazo repite el sistema agrícola, para que el color no cargue solo."""
     if regime == "S":
@@ -206,22 +262,27 @@ def phase_month_range(start: str, end: str, language: str) -> str:
 def phase_chart_layers(
     sequence: str,
     language: str,
+    profile: dict,
 ) -> tuple[list[dict], list[dict]]:
     """Franja de fases situada por encima del área de trazado.
 
     Las etiquetas ya no se escriben sobre las curvas: viven en una banda propia y
-    se reparten en dos filas cuando el nombre no cabe dentro de su tramo.
+    se reparten en dos filas cuando el nombre no cabe dentro de su tramo. En
+    pantallas estrechas no cabe ningún nombre, así que la franja lleva el número
+    de orden de la fase y la ficha de fenología repite esa numeración.
     """
     shapes: list[dict] = []
     annotations: list[dict] = []
     origin = pd.Timestamp("2024-09-01")
-    pixels_per_day = PLOT_WIDTH_HINT / PLOT_DAYS
-    font_size = 13
+    pixels_per_day = profile["plot_width"] / PLOT_DAYS
+    font_size = profile["phase_font"]
+    band_bottom, band_top = profile["phase_band"]
+    label_rows = profile["phase_rows"]
     row_ends = [-1e6, -1e6]
-    for phase in calendar_for(sequence):
+    for index, phase in enumerate(calendar_for(sequence), start=1):
         start = pd.Timestamp(phase["start"])
         end = pd.Timestamp(phase["end"]) + pd.Timedelta(days=1)
-        label = phase[f"label_{language}"]
+        label = str(index) if profile["numbered_phases"] else phase[f"label_{language}"]
         shapes.append(
             {
                 "type": "rect",
@@ -244,8 +305,8 @@ def phase_chart_layers(
                 "yref": "paper",
                 "x0": start,
                 "x1": end,
-                "y0": PHASE_BAND["bottom"],
-                "y1": PHASE_BAND["top"],
+                "y0": band_bottom,
+                "y1": band_top,
                 "fillcolor": phase["color"],
                 "opacity": 0.62,
                 "line": {"width": 0},
@@ -262,7 +323,7 @@ def phase_chart_layers(
                 "xref": "x",
                 "yref": "paper",
                 "x": start + (end - start) / 2,
-                "y": PHASE_LABEL_ROWS[row],
+                "y": label_rows[row],
                 "text": f"<b>{label}</b>",
                 "showarrow": False,
                 "font": {"size": font_size, "color": "#1B3446"},
@@ -277,8 +338,8 @@ def phase_chart_layers(
                 "yref": "paper",
                 "x0": start + (end - start) / 2,
                 "x1": start + (end - start) / 2,
-                "y0": PHASE_BAND["top"],
-                "y1": PHASE_LABEL_ROWS[row] - 0.022,
+                "y0": band_top,
+                "y1": label_rows[row] - 0.022,
                 "line": {"color": phase["color"], "width": 1.2},
             }
         )
@@ -401,6 +462,7 @@ def build_chart(
     selected_groups: list[str],
     selected_month: str,
     language: str,
+    profile: dict,
 ) -> go.Figure:
     text = TEXT[language]
     figure = go.Figure()
@@ -465,13 +527,15 @@ def build_chart(
         "y": 0.015,
         "text": text["selected_month"],
         "showarrow": False,
-        "font": {"size": 11, "color": "#344957"},
+        "font": {"size": profile["month_font"], "color": "#344957"},
         "bgcolor": "rgba(252,250,245,0.82)",
         "borderpad": 3,
         "yanchor": "bottom",
     }
     reference_sequence = str(chosen.iloc[0]["crop_sequence"])
-    phase_shapes, phase_annotations = phase_chart_layers(reference_sequence, language)
+    phase_shapes, phase_annotations = phase_chart_layers(
+        reference_sequence, language, profile
+    )
     cycle_label = html.escape(
         str(chosen.iloc[0]["label_es"] if language == "es" else chosen.iloc[0]["label_en"])
     )
@@ -479,7 +543,7 @@ def build_chart(
         "xref": "paper",
         "yref": "paper",
         "x": 0,
-        "y": 1.255,
+        "y": profile["header_y"],
         "text": f'<b>{text["cycle_shown"]} · {cycle_label}</b>',
         "showarrow": False,
         "font": {"size": 12, "color": "#FFFFFF"},
@@ -493,15 +557,19 @@ def build_chart(
     base_shapes = [month_shape]
     base_annotations = [month_annotation]
     visible_shapes = [*base_shapes, *phase_shapes]
-    visible_annotations = [*base_annotations, phase_header, *phase_annotations]
-    tick_dates = pd.date_range("2024-09-01", "2025-10-01", freq="MS")
+    visible_annotations = [*base_annotations, *phase_annotations]
+    if profile["cycle_header"]:
+        visible_annotations.insert(len(base_annotations), phase_header)
+    tick_dates = pd.date_range(
+        "2024-09-01", "2025-10-01", freq=f"{profile['tick_step']}MS"
+    )
     tick_labels = [
         f"{MONTHS[language][value.month - 1][:3].capitalize()}<br>{value.year}"
         for value in tick_dates
     ]
     figure.update_layout(
-        height=660,
-        margin={"l": 22, "r": 20, "t": 190, "b": 20},
+        height=profile["height"],
+        margin={"l": 22, "r": 20, "t": profile["margin_top"], "b": 20},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#FCFAF5",
         hovermode="x unified",
@@ -515,12 +583,12 @@ def build_chart(
                 "active": 0,
                 "x": 1,
                 "xanchor": "right",
-                "y": 1.285,
+                "y": profile["buttons_y"],
                 "yanchor": "top",
                 "pad": {"r": 0, "t": 0},
                 "bgcolor": "#FFFCF6",
                 "bordercolor": "#A9B3B9",
-                "font": {"color": "#20364B", "size": 11},
+                "font": {"color": "#20364B", "size": profile["button_font"]},
                 "buttons": [
                     {
                         "label": text["phase_yes"],
@@ -535,7 +603,12 @@ def build_chart(
                 ],
             }
         ],
-        legend={"orientation": "h", "y": -0.18, "x": 0, "font": {"size": 12, "color": "#263B49"}},
+        legend={
+            "orientation": "h",
+            "y": profile["legend_y"],
+            "x": 0,
+            "font": {"size": profile["legend_font"], "color": "#263B49"},
+        },
         xaxis={
             "title": None,
             "showgrid": False,
@@ -543,7 +616,7 @@ def build_chart(
             "tickmode": "array",
             "tickvals": tick_dates,
             "ticktext": tick_labels,
-            "tickfont": {"color": "#1E3646", "size": 13},
+            "tickfont": {"color": "#1E3646", "size": profile["tick_font"]},
             "showline": True,
             "linecolor": "#526574",
             "linewidth": 1.4,
@@ -553,11 +626,14 @@ def build_chart(
             "automargin": True,
         },
         yaxis={
-            "title": {"text": "NDVI", "font": {"color": "#17324B", "size": 16}},
+            "title": {
+                "text": "NDVI",
+                "font": {"color": "#17324B", "size": profile["axis_title_font"]},
+            },
             "range": [0, 1],
             "gridcolor": "rgba(32,54,75,0.15)",
             "zeroline": False,
-            "tickfont": {"color": "#1E3646", "size": 13},
+            "tickfont": {"color": "#1E3646", "size": profile["tick_font"]},
             "showline": True,
             "linecolor": "#526574",
             "linewidth": 1.4,
@@ -583,11 +659,12 @@ def phase_schedule_html(sequence: str, language: str) -> str:
     if not phases:
         return ""
     items = []
-    for phase in phases:
+    for index, phase in enumerate(phases, start=1):
         label = html.escape(phase[f"label_{language}"])
         period = phase_month_range(phase["start"], phase["end"], language)
         items.append(
             f'<div class="phase-item">'
+            f'<span class="phase-index">{index}</span>'
             f'<span class="phase-swatch" style="background:{phase["color"]}"></span>'
             f'<span class="phase-name">{label}</span>'
             f'<span class="phase-months">{period}</span>'
@@ -659,7 +736,8 @@ def main() -> None:
         .phenology-meta strong { color:#263E4C; font-weight:720; }
         .phase-heading { color:#263E4C; font-size:.85rem; font-weight:740; margin:14px 0 7px; }
         .phase-grid { display:grid; grid-template-columns:1fr; gap:5px; }
-        .phase-item { display:grid; grid-template-columns:10px minmax(0,1fr) auto; align-items:center; gap:7px; color:#304A58; font-size:.79rem; line-height:1.2; }
+        .phase-item { display:grid; grid-template-columns:14px 10px minmax(0,1fr) auto; align-items:center; gap:7px; color:#304A58; font-size:.79rem; line-height:1.2; }
+        .phase-index { color:#6E7E88; font-weight:740; font-size:.73rem; font-variant-numeric:tabular-nums; text-align:right; }
         .phase-swatch { width:8px; height:8px; border-radius:50%; }
         .phase-name { font-weight:650; }
         .phase-months { color:#3D5360; font-size:.76rem; white-space:nowrap; }
@@ -671,6 +749,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     groups, curves, units, monthly = load_data()
+    profile = chart_profile()
 
     _, language_slot = st.columns([5, 1])
     with language_slot:
@@ -751,7 +830,9 @@ def main() -> None:
     st.markdown(f"<div class='section-label'>{text['chart']}</div>", unsafe_allow_html=True)
     if selected_groups:
         st.plotly_chart(
-            build_chart(curves, groups, selected_groups, selected_month, language),
+            build_chart(
+                curves, groups, selected_groups, selected_month, language, profile
+            ),
             width="stretch",
             config={"displayModeBar": False, "responsive": True},
         )
